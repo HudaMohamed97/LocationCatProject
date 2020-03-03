@@ -117,7 +117,9 @@ class LoginFragment : Fragment(), LoginInterface {
                 if (it.access_token != "") {
                     saveData(it)
                     saveUserData()
-                    findNavController().navigate(R.id.action_LoginFragment_to_Home)
+                    if (findNavController().currentDestination?.id == R.id.loginFragment) {
+                        findNavController().navigate(R.id.action_LoginFragment_to_Home)
+                    }
                 } else {
                     var error = it.token_type.replace("[", "")
                     error = error.replace("]", "")

@@ -20,6 +20,14 @@ interface ApiServices {
     ): Call<ResponseBody>
 
 
+    @Multipart
     @POST("auth/register")
-    fun register(@Body registerRequestModel: RegisterRequestModel): Call<ResponseModelData>
+    fun register(
+        @Part("email") email: RequestBody, @Part("password") password: RequestBody, @Part("name") name: RequestBody,
+        @Part image: MultipartBody.Part
+    ): Call<ResponseModelData>
+
+
+   /* @POST("auth/register")
+    fun register(@Body registerRequestModel: RegisterRequestModel): Call<ResponseModelData>*/
 }

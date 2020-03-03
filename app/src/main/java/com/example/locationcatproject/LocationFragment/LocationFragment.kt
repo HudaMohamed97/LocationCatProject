@@ -2,6 +2,7 @@ package com.example.locationcatproject.LocationFragment
 
 import android.Manifest
 import android.app.Activity
+import android.app.AlertDialog
 import android.content.Context
 import android.content.Intent
 import android.content.IntentSender
@@ -11,7 +12,6 @@ import android.location.Location
 import android.os.Bundle
 import android.os.Handler
 import android.os.ResultReceiver
-import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -23,12 +23,10 @@ import androidx.fragment.app.Fragment
 import androidx.lifecycle.Observer
 import androidx.lifecycle.ViewModelProviders
 import com.example.myapplication.LoginFragment.LocationViewModel
-import com.example.myapplication.LoginFragment.LoginViewModel
 import com.google.android.gms.common.ConnectionResult
 import com.google.android.gms.common.GoogleApiAvailability
 import com.google.android.gms.common.api.ResolvableApiException
 import com.google.android.gms.location.*
-import com.google.android.gms.tasks.OnFailureListener
 import kotlinx.android.synthetic.main.location_fragment.*
 
 
@@ -39,6 +37,7 @@ class LocationFragment : Fragment() {
     private var mFusedLocationClient: FusedLocationProviderClient? = null
     private val LOCATION_PERMISSION = 1001
     private val REQUEST_CHECK_SETTINGS = 10001
+    private var fromButton = false
     private var getLocation: Button? = null
     private var mLastLocation: Location? = null
     private var mResultReceiver: AddressResultReceiver? = null
@@ -54,10 +53,11 @@ class LocationFragment : Fragment() {
             for (location in locationResult.locations) {
                 // Update UI with location data
                 mLastLocation = location
-                Toast.makeText(
-                    activity, "Lat :" + location.latitude + " Long :"
-                            + location.longitude, Toast.LENGTH_SHORT
-                ).show()
+                val lng = location.longitude.toString()
+                val lat = location.latitude.toString()
+                if (fromButton) {
+                    callSubmitLocation(lat, lng)
+                }
                 mFusedLocationClient!!.removeLocationUpdates(this)
                 startIntentService()
             }
@@ -75,16 +75,25 @@ class LocationFragment : Fragment() {
         locationViewModel.getData().observe(this, Observer {
             location_progressBar.visibility = View.GONE
             if (it != null) {
-                Toast.makeText(activity, "Submitted Successfully", Toast.LENGTH_SHORT)
-                    .show()
+                openAlertDialog("Submitted Successfully ,Thanks ")
 
             } else {
-                Toast.makeText(activity, "You Already Submit this  Before", Toast.LENGTH_SHORT)
-                    .show()
+                openAlertDialog("There is an Error Occurs Please Try Again.")
             }
 
 
         })
+    }
+
+    private fun openAlertDialog(massage: String) {
+        val builder1 = AlertDialog.Builder(activity)
+        builder1.setMessage(massage)
+        builder1.setCancelable(true)
+        builder1.setPositiveButton(
+            "ok"
+        ) { dialog, id -> dialog.cancel() }
+        val alert = builder1.create()
+        alert.show()
     }
 
     override fun onCreateView(
@@ -104,26 +113,8 @@ class LocationFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         loginPreferences = activity!!.getSharedPreferences("loginPrefs", Context.MODE_PRIVATE)
-
-        get_location.setOnClickListener {
-            mResultReceiver = AddressResultReceiver(null)
-            mFusedLocationClient = LocationServices.getFusedLocationProviderClient(activity!!)
-            getLocation()
-        }
-    }
-
-
-    override fun onResume() {
-        super.onResume()
-        if (GoogleApiAvailability.getInstance().isGooglePlayServicesAvailable(activity) == ConnectionResult.SUCCESS) {
-            //            Toast.makeText(this, "Play available!", Toast.LENGTH_SHORT).show();
-
-        } else {
-            getLocation?.isEnabled = false
-        }
-    }
-
-    private fun getLocation() {
+        mResultReceiver = AddressResultReceiver(null)
+        mFusedLocationClient = LocationServices.getFusedLocationProviderClient(activity!!)
         if (checkSelfPermission(
                 activity!!,
                 Manifest.permission.ACCESS_FINE_LOCATION
@@ -135,17 +126,30 @@ class LocationFragment : Fragment() {
             )
             return
         }
+        createAndCheckLocationRequest()
+        get_location.setOnClickListener {
+            fromButton = true
+            getLocation()
+        }
+    }
+
+
+    override fun onResume() {
+        super.onResume()
+        if (GoogleApiAvailability.getInstance().isGooglePlayServicesAvailable(activity) == ConnectionResult.SUCCESS) {
+
+        } else {
+            getLocation?.isEnabled = false
+        }
+    }
+
+    private fun getLocation() {
         mFusedLocationClient?.lastLocation?.addOnSuccessListener(
             activity!!
         ) { location ->
             // Got last known location. In some rare situations this can be null.
             if (location != null) {
                 mLastLocation = location
-                Toast.makeText(
-                    activity, location.latitude.toString() + " "
-                            + location.longitude, Toast.LENGTH_SHORT
-                ).show()
-                Log.i("hhhhh", "" + location.latitude)
                 val lng = location.longitude.toString()
                 val lat = location.latitude.toString()
                 callSubmitLocation(lat, lng)
@@ -186,11 +190,12 @@ class LocationFragment : Fragment() {
                 LOCATION_PERMISSION
             )
         }
-        mFusedLocationClient?.requestLocationUpdates(
-            mLocationRequest,
-            mLocationCallback,
-            null
-        )
+        if (fromButton) {
+            location_progressBar.visibility = View.VISIBLE
+        } else {
+            location_progressBar.visibility = View.GONE
+        }
+        mFusedLocationClient?.requestLocationUpdates(mLocationRequest, mLocationCallback, null)
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
@@ -238,15 +243,13 @@ class LocationFragment : Fragment() {
         mLocationRequest!!.interval = 10000
         mLocationRequest!!.fastestInterval = 5000
         mLocationRequest!!.priority = LocationRequest.PRIORITY_HIGH_ACCURACY
-        val builder = LocationSettingsRequest.Builder()
-            .addLocationRequest(mLocationRequest!!)
+        val builder = LocationSettingsRequest.Builder().addLocationRequest(mLocationRequest!!)
         val client = LocationServices.getSettingsClient(activity!!)
         val task = client.checkLocationSettings(builder.build())
-        task.addOnSuccessListener(
-            activity!!
-        ) { requestLocationUpdate() }
-
-        task.addOnFailureListener(activity!!, OnFailureListener { e ->
+        task.addOnSuccessListener(activity!!) {
+            requestLocationUpdate()
+        }
+        task.addOnFailureListener(activity!!) { e ->
             if (e is ResolvableApiException) {
                 // Location settings are not satisfied, but this can be fixed
                 // by showing the user a dialog.
@@ -262,7 +265,7 @@ class LocationFragment : Fragment() {
                 }
 
             }
-        })
+        }
     }
 
 

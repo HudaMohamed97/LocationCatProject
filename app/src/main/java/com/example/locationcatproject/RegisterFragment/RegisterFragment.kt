@@ -2,6 +2,7 @@ package com.example.locationcatproject.RegisterFragment
 
 import android.Manifest
 import android.app.Activity
+import android.app.AlertDialog
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -18,6 +19,7 @@ import android.view.ViewGroup
 import android.view.inputmethod.InputMethodManager
 import android.widget.EditText
 import android.widget.Toast
+import androidx.appcompat.view.ContextThemeWrapper
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
@@ -45,6 +47,7 @@ class RegisterFragment : Fragment() {
     private lateinit var rePasswordText: String
     private lateinit var nameText: String
     private lateinit var FromFragment: String
+    private var fileUri: String = ""
     private var matched = false
 
 
@@ -92,27 +95,26 @@ class RegisterFragment : Fragment() {
     }
 
     private fun callRegisterRequest() {
-        progressBar.visibility = View.VISIBLE
         if (photoString != "") {
-            val requestModel = RegisterRequestModel(emailText, passwordText, nameText, photoString)
+            progressBar.visibility = View.VISIBLE
+            val requestModel = RegisterRequestModel(emailText, passwordText, nameText, fileUri)
             registerViewModel.register(requestModel)
             registerViewModel.getData().observe(this, Observer {
                 progressBar.visibility = View.GONE
                 if (it != null) {
                     if (it.access_token != "") {
-                        Toast.makeText(activity, "Register Successfully", Toast.LENGTH_SHORT).show()
+                        openAlertDialog("Register Successfully")
                     } else {
                         var error = it.token_type.replace("[", "")
                         error = error.replace("]", "")
                         Toast.makeText(activity, error, Toast.LENGTH_SHORT).show()
                     }
                 } else {
-                    Toast.makeText(activity, "Network Error", Toast.LENGTH_SHORT).show()
+                    openAlertDialog("Network Error")
                 }
             })
         } else {
             Toast.makeText(activity, "Please Choose Photo,Thanks", Toast.LENGTH_SHORT).show()
-
         }
 
     }
@@ -182,20 +184,11 @@ class RegisterFragment : Fragment() {
             if (resultCode == Activity.RESULT_OK) {
                 photoString = data?.data.toString()
                 val selectedImage = data?.data
-                /*val filePathColumn = arrayOf(MediaStore.Images.Media.DATA)
-                val cursor = activity?.contentResolver?.query(
-                    selectedImage!!,
-                    filePathColumn, null, null, null
-                )
-                cursor?.moveToFirst()
-                val columnIndex = cursor?.getColumnIndex(filePathColumn[0])
-                val picturePath = cursor?.getString(columnIndex!!)
-                cursor?.close()
-                imgProfile.setImageBitmap(BitmapHelper.decodeFile(picturePath, 200, 200, true))
-                val bitmap = (imgProfile.drawable as BitmapDrawable).bitmap
-                val encoded = ImageBase64.encodeTobase64(bitmap)*/
                 if (selectedImage != null) {
-                    val bitmap: Bitmap =
+                    fileUri = getPath(selectedImage)
+                    imgProfile.setImageURI(selectedImage)
+
+                  /*  val bitmap: Bitmap =
                         MediaStore.Images.Media.getBitmap(activity?.contentResolver, selectedImage)
                     val outputStream = ByteArrayOutputStream()
                     bitmap.compress(Bitmap.CompressFormat.PNG, 100, outputStream)
@@ -203,7 +196,7 @@ class RegisterFragment : Fragment() {
                     //Use your Base64 String as you wish
                     val encoded = Base64.encodeToString(byteArray, Base64.DEFAULT)
                     photoString = encoded
-                    imgProfile.setImageURI(selectedImage)
+                    imgProfile.setImageURI(selectedImage)*/
                 }
 
             }
@@ -257,4 +250,17 @@ class RegisterFragment : Fragment() {
             Toast.makeText(activity, "not access", Toast.LENGTH_SHORT).show()
         }
     }
+
+    private fun openAlertDialog(massage: String) {
+        val ctw =  ContextThemeWrapper(activity, R.style.ThemeOverlay_AppCompat_Dialog_Alert)
+        val builder1 = AlertDialog.Builder(ctw)
+        builder1.setMessage(massage)
+        builder1.setCancelable(true)
+        builder1.setPositiveButton(
+            "ok"
+        ) { dialog, id -> dialog.cancel() }
+        val alert = builder1.create()
+        alert.show()
+    }
+
 }
