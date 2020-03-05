@@ -24,7 +24,7 @@ class LocationViewModel : ViewModel() {
     }
 
 
-    fun submitLocation(lng: String, lat: String, accessToken: String, userId: Int) {
+    fun submitLocation(lat: String, lng: String, accessToken: String, userId: Int) {
         mutableLiveData = repositoryHelper.submitLocation(accessToken, lng, lat, userId)
 
     }
